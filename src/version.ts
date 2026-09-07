@@ -19,6 +19,9 @@ const VERSION_REGEX =
 
 /**
  * This data class is used to represent a SemVer version.
+ *
+ * Optional `raw` preserves the original version string so CalVer values
+ * (zero-padded segments / MICRO as a 4th segment) survive parse→toString.
  */
 export class Version {
   readonly major: number;
@@ -26,19 +29,22 @@ export class Version {
   readonly patch: number;
   readonly preRelease?: string;
   readonly build?: string;
+  private readonly raw?: string;
 
   constructor(
     major: number,
     minor: number,
     patch: number,
     preRelease?: string,
-    build?: string
+    build?: string,
+    raw?: string
   ) {
     this.major = major;
     this.minor = minor;
     this.patch = patch;
     this.preRelease = preRelease;
     this.build = build;
+    this.raw = raw;
   }
 
   /**
@@ -58,7 +64,7 @@ export class Version {
     const patch = Number(match.groups.patch);
     const preRelease = match.groups.preRelease;
     const build = match.groups.build;
-    return new Version(major, minor, patch, preRelease, build);
+    return new Version(major, minor, patch, preRelease, build, versionString);
   }
 
   /**
@@ -69,7 +75,22 @@ export class Version {
    *   are the same, or 1 otherwise.
    */
   compare(other: Version): -1 | 0 | 1 {
-    return semver.compare(this.toString(), other.toString());
+    const left = this.toString();
+    const right = other.toString();
+    if (semver.valid(left) && semver.valid(right)) {
+      return semver.compare(left, right);
+    }
+    // CalVer / non-semver: lexicographic on dotted numeric segments
+    const leftParts = left.split(/[.+-]/).map(p => Number(p) || 0);
+    const rightParts = right.split(/[.+-]/).map(p => Number(p) || 0);
+    const len = Math.max(leftParts.length, rightParts.length);
+    for (let i = 0; i < len; i++) {
+      const l = leftParts[i] ?? 0;
+      const r = rightParts[i] ?? 0;
+      if (l < r) return -1;
+      if (l > r) return 1;
+    }
+    return 0;
   }
 
   /**
@@ -78,6 +99,9 @@ export class Version {
    * @returns {string}
    */
   toString(): string {
+    if (this.raw !== undefined) {
+      return this.raw;
+    }
     const preReleasePart = this.preRelease ? `-${this.preRelease}` : '';
     const buildPart = this.build ? `+${this.build}` : '';
     return `${this.major}.${this.minor}.${this.patch}${preReleasePart}${buildPart}`;

@@ -135,6 +135,8 @@ export async function buildStrategy(
     bumpPatchForMinorPreMajor: options.bumpPatchForMinorPreMajor,
     prereleaseType: options.prereleaseType,
     prerelease: options.prerelease,
+    dateFormat: options.dateFormat,
+    calverScheme: options.calverScheme,
   });
   const changelogNotes = buildChangelogNotes({
     type: options.changelogType || 'default',
