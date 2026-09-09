@@ -58,7 +58,8 @@ export interface CalendarVersioningStrategyOptions {
  *
  * Rocketlane scheme example: YYYY.0M.0D.RELEASE.HOTFIX
  * - Normal release (feat/fix/…): bump RELEASE, reset HOTFIX → …1.0, …2.0
- * - Hotfix (`hotfix:` commits only): bump HOTFIX → …1.1, …1.2
+ * - Hotfix (`hotfix:` commits, or commits remapped from hotfix_* PR branches):
+ *   bump HOTFIX → …1.1, …1.2
  * - New calendar day: first normal release starts at …1.0
  */
 export class CalendarVersioningStrategy implements VersioningStrategy {

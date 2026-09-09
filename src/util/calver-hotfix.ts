@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {ConventionalCommit} from '../commit';
+
+/**
+ * Default PR head-branch pattern for Rocketlane hotfix branches:
+ * `hotfix_foo`, `hotfix/foo`, `hotfix-foo`.
+ */
+export const DEFAULT_HOTFIX_BRANCH_PATTERN = '^hotfix[_/-]';
+
 /**
  * For Rocketlane CalVer `YYYY.0M.0D.RELEASE.HOTFIX`, a hotfix release
  * (HOTFIX >= 1) is tied to base `…RELEASE.0`.
@@ -47,4 +55,43 @@ export function unstableReleaseName(name?: string): string {
     return base;
   }
   return `${base} (unstable)`;
+}
+
+/**
+ * True when a PR head branch name matches the hotfix branch pattern.
+ */
+export function isHotfixBranch(
+  branchName?: string,
+  pattern: string = DEFAULT_HOTFIX_BRANCH_PATTERN
+): boolean {
+  if (!branchName) {
+    return false;
+  }
+  try {
+    return new RegExp(pattern, 'i').test(branchName);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Remap conventional commit type to `hotfix` when the associated PR was
+ * opened from a hotfix_* / hotfix/* branch. Commit messages like `fix:`
+ * still land under Hotfixes and bump HOTFIX (…1.1) instead of RELEASE.
+ *
+ * Direct pushes without an associated PR are unchanged (still need `hotfix:`).
+ */
+export function applyHotfixBranchHints(
+  commits: ConventionalCommit[],
+  pattern: string = DEFAULT_HOTFIX_BRANCH_PATTERN
+): ConventionalCommit[] {
+  return commits.map(commit => {
+    if (commit.type === 'hotfix') {
+      return commit;
+    }
+    if (!isHotfixBranch(commit.pullRequest?.headBranchName, pattern)) {
+      return commit;
+    }
+    return {...commit, type: 'hotfix'};
+  });
 }

@@ -47,7 +47,10 @@ import {
 } from './util/pull-request-overflow-handler';
 import {signoffCommitMessage} from './util/signoff-commit-message';
 import {CommitExclude} from './util/commit-exclude';
-import {hotfixBaseVersion} from './util/calver-hotfix';
+import {
+  applyHotfixBranchHints,
+  hotfixBaseVersion,
+} from './util/calver-hotfix';
 
 type ExtraGenericFile = {
   type: 'generic';
@@ -128,6 +131,12 @@ export interface ReleaserConfig {
   initialVersion?: string;
   dateFormat?: string;
   calverScheme?: string;
+  /**
+   * Regex matched against merged PR head branch names. Matching commits are
+   * remapped to conventional type `hotfix` (e.g. `^hotfix[_/-]` for
+   * hotfix_*, hotfix/*, hotfix-*).
+   */
+  hotfixBranchPattern?: string;
 
   // Changelog options
   changelogSections?: ChangelogSection[];
@@ -197,6 +206,7 @@ interface ReleaserConfigJson {
   'exclude-paths'?: string[]; // manifest-only
   'date-format'?: string;
   'calver-scheme'?: string;
+  'hotfix-branch-pattern'?: string;
 }
 
 export interface ManifestOptions {
@@ -757,6 +767,12 @@ export class Manifest {
         commitsPerPath[path],
         this.logger
       );
+      if (config.hotfixBranchPattern) {
+        pathCommits = applyHotfixBranchHints(
+          pathCommits,
+          config.hotfixBranchPattern
+        );
+      }
       // The processCommits hook can be implemented by plugins to
       // post-process commits. This can be used to perform cleanup, e.g,, sentence
       // casing all commit messages:
@@ -1461,6 +1477,7 @@ function extractReleaserConfig(
     excludePaths: config['exclude-paths'],
     dateFormat: config['date-format'],
     calverScheme: config['calver-scheme'],
+    hotfixBranchPattern: config['hotfix-branch-pattern'],
   };
 }
 
@@ -1828,6 +1845,8 @@ function mergeReleaserConfig(
     excludePaths: pathConfig.excludePaths ?? defaultConfig.excludePaths,
     dateFormat: pathConfig.dateFormat ?? defaultConfig.dateFormat,
     calverScheme: pathConfig.calverScheme ?? defaultConfig.calverScheme,
+    hotfixBranchPattern:
+      pathConfig.hotfixBranchPattern ?? defaultConfig.hotfixBranchPattern,
   };
 }
 
