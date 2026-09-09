@@ -17,7 +17,7 @@ import {
   ChangelogNotes,
   BuildNotesOptions,
 } from '../changelog-notes';
-import {ConventionalCommit} from '../commit';
+import {ConventionalCommit, usernameFromNoreplyEmail} from '../commit';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const conventionalChangelogWriter = require('conventional-changelog-writer');
@@ -89,11 +89,11 @@ export class DefaultChangelogNotes implements ChangelogNotes {
         );
       let subject = htmlEscape(commit.bareMessage);
       // Append author info if enabled and author is available
-      if (options.includeCommitAuthors && commit.author) {
-        const authorDisplay = commit.author.username
-          ? `@${commit.author.username}`
-          : commit.author.name;
-        subject = `${subject} (${authorDisplay})`;
+      if (options.includeCommitAuthors) {
+        const authorDisplay = formatAuthorHandle(commit);
+        if (authorDisplay) {
+          subject = `${subject} (${authorDisplay})`;
+        }
       }
       return {
         body: '', // commit.body,
@@ -135,10 +135,14 @@ function buildNotesSummary(
   options: BuildNotesOptions
 ): string {
   const host = options.host || DEFAULT_HOST;
+  const visibleTypes = visibleChangelogTypes(options.changelogSections);
   const lines: string[] = [];
   const seen = new Set<string>();
 
   for (const commit of commits) {
+    if (visibleTypes && !visibleTypes.has(commit.type)) {
+      continue;
+    }
     const what = cleanSummarySubject(commit.bareMessage);
     if (!what) {
       continue;
@@ -167,6 +171,17 @@ function buildNotesSummary(
   return ['### Notes', '', ...lines].join('\n');
 }
 
+function visibleChangelogTypes(
+  sections?: ChangelogSection[]
+): Set<string> | undefined {
+  if (!sections || sections.length === 0) {
+    return undefined;
+  }
+  return new Set(
+    sections.filter(section => !section.hidden).map(section => section.type)
+  );
+}
+
 function cleanSummarySubject(subject: string): string {
   return subject
     .replace(/\s*\(#\d+\)\s*$/, '')
@@ -175,13 +190,22 @@ function cleanSummarySubject(subject: string): string {
 }
 
 function formatAuthor(commit: ConventionalCommit): string {
+  return formatAuthorHandle(commit) || '_unknown_';
+}
+
+/** @returns `@login` or display name, or undefined if no author info. */
+function formatAuthorHandle(commit: ConventionalCommit): string | undefined {
   if (commit.author?.username) {
     return `@${commit.author.username}`;
+  }
+  const fromEmail = usernameFromNoreplyEmail(commit.author?.email);
+  if (fromEmail) {
+    return `@${fromEmail}`;
   }
   if (commit.author?.name) {
     return commit.author.name;
   }
-  return '_unknown_';
+  return undefined;
 }
 
 function replaceIssueLink(

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import {PullRequest} from './pull-request';
-import {Commit} from './commit';
+import {Commit, usernameFromNoreplyEmail} from './commit';
 
 import {Octokit} from '@octokit/rest';
 import {request} from '@octokit/request';
@@ -350,7 +350,9 @@ export class GitHub implements Scm {
           ? {
               name: graphCommit.author.name || 'Unknown',
               email: graphCommit.author.email,
-              username: graphCommit.author.user?.login,
+              username:
+                graphCommit.author.user?.login ||
+                usernameFromNoreplyEmail(graphCommit.author.email),
             }
           : undefined,
       };
@@ -369,8 +371,10 @@ export class GitHub implements Scm {
           );
         }
       );
-      const pullRequest =
-        mergePullRequest || graphCommit.associatedPullRequests.nodes[0];
+      // Prefer the true merge PR. Do NOT fall back to associatedPullRequests[0]:
+      // open PRs that merely contain the commit (e.g. a long-lived branch PR into
+      // master) would otherwise steal the association and poison release notes.
+      const pullRequest = mergePullRequest;
       if (pullRequest) {
         commit.pullRequest = {
           sha: commit.sha,
@@ -392,7 +396,11 @@ export class GitHub implements Scm {
           this.logger.info(
             `PR #${mergePullRequest.number} has many files, backfilling`
           );
-          commit.files = await this.getCommitFiles(graphCommit.sha);
+          const meta = await this.getCommitMeta(graphCommit.sha);
+          commit.files = meta.files;
+          if (!commit.author && meta.author) {
+            commit.author = meta.author;
+          }
         } else {
           // We cannot directly fetch files on commits via graphql, only provide file
           // information for commits with associated pull requests
@@ -405,7 +413,18 @@ export class GitHub implements Scm {
         // merge commit, a rebase merge commit, or a direct commit to the branch.
         // Fallback to fetching the list of commits from the REST API. In the future
         // we can perhaps lazy load these.
-        commit.files = await this.getCommitFiles(graphCommit.sha);
+        const meta = await this.getCommitMeta(graphCommit.sha);
+        commit.files = meta.files;
+        if (!commit.author && meta.author) {
+          commit.author = meta.author;
+        }
+      }
+      // REST fallback if GraphQL omitted author (seen with some App tokens).
+      if (!commit.author) {
+        const meta = await this.getCommitMeta(graphCommit.sha);
+        if (meta.author) {
+          commit.author = meta.author;
+        }
       }
       commitData.push(commit);
     }
@@ -423,33 +442,66 @@ export class GitHub implements Scm {
    * @throws {GitHubAPIError} on an API error
    */
   getCommitFiles = wrapAsync(async (sha: string): Promise<string[]> => {
-    this.logger.debug(`Backfilling file list for commit: ${sha}`);
-    const files: string[] = [];
-    for await (const resp of this.octokit.paginate.iterator(
-      'GET /repos/{owner}/{repo}/commits/{ref}',
-      {
-        owner: this.repository.owner,
-        repo: this.repository.repo,
-        ref: sha,
-      }
-    )) {
-      // Paginate plugin doesn't have types for listing files on a commit
-      const data = resp.data as any as {files: {filename: string}[]};
-      for (const f of data.files || []) {
-        if (f.filename) {
-          files.push(f.filename);
+    const meta = await this.getCommitMeta(sha);
+    return meta.files;
+  });
+
+  /**
+   * Fetch commit files + author via REST (used when GraphQL omits them).
+   */
+  getCommitMeta = wrapAsync(
+    async (
+      sha: string
+    ): Promise<{
+      files: string[];
+      author?: {name: string; email?: string; username?: string};
+    }> => {
+      this.logger.debug(`Backfilling commit meta for: ${sha}`);
+      const files: string[] = [];
+      let author:
+        | {name: string; email?: string; username?: string}
+        | undefined;
+      for await (const resp of this.octokit.paginate.iterator(
+        'GET /repos/{owner}/{repo}/commits/{ref}',
+        {
+          owner: this.repository.owner,
+          repo: this.repository.repo,
+          ref: sha,
+        }
+      )) {
+        const data = resp.data as any as {
+          files: {filename: string}[];
+          author?: {login?: string} | null;
+          commit?: {
+            author?: {name?: string; email?: string} | null;
+          };
+        };
+        if (!author && (data.commit?.author || data.author)) {
+          const name = data.commit?.author?.name || data.author?.login || 'Unknown';
+          const email = data.commit?.author?.email;
+          author = {
+            name,
+            email,
+            username:
+              data.author?.login || usernameFromNoreplyEmail(email),
+          };
+        }
+        for (const f of data.files || []) {
+          if (f.filename) {
+            files.push(f.filename);
+          }
         }
       }
+      if (files.length >= 3000) {
+        this.logger.warn(
+          `Found ${files.length} files. This may not include all the files.`
+        );
+      } else {
+        this.logger.debug(`Found ${files.length} files`);
+      }
+      return {files, author};
     }
-    if (files.length >= 3000) {
-      this.logger.warn(
-        `Found ${files.length} files. This may not include all the files.`
-      );
-    } else {
-      this.logger.debug(`Found ${files.length} files`);
-    }
-    return files;
-  });
+  );
 
   private graphqlRequest = wrapAsync(
     async (

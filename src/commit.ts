@@ -31,6 +31,21 @@ export interface CommitAuthor {
   username?: string;
 }
 
+/**
+ * Extract a GitHub login from a users.noreply.github.com email.
+ */
+export function usernameFromNoreplyEmail(
+  email?: string
+): string | undefined {
+  if (!email) {
+    return undefined;
+  }
+  const match = email.match(
+    /^(?:\d+\+)?([a-zA-Z0-9-]+)(?:\[bot\])?@users\.noreply\.github\.com$/i
+  );
+  return match?.[1];
+}
+
 export interface Commit {
   sha: string;
   message: string;

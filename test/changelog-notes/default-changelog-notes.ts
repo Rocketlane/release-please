@@ -405,6 +405,11 @@ describe('DefaultChangelogNotes', () => {
         const notes = await changelogNotes.buildNotes(commits, {
           ...notesOptions,
           includeNotesSummary: true,
+          changelogSections: [
+            {type: 'feat', section: 'Features'},
+            {type: 'fix', section: 'Bug Fixes'},
+            {type: 'ci', section: 'CI', hidden: true},
+          ],
         });
         expect(notes).to.match(/^### Notes/);
         expect(notes).to.include('**payment timeout**');
