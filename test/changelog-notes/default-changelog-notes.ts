@@ -411,7 +411,9 @@ describe('DefaultChangelogNotes', () => {
             {type: 'ci', section: 'CI', hidden: true},
           ],
         });
-        expect(notes).to.match(/^### Notes/);
+        expect(notes).to.include('### Notes');
+        expect(notes).to.match(/^## /);
+        expect(notes.indexOf('## ')).to.be.lessThan(notes.indexOf('### Notes'));
         expect(notes).to.include('**payment timeout**');
         expect(notes).to.include('@manikandanrockertane');
         expect(notes).to.include('#99');

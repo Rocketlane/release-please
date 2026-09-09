@@ -123,8 +123,31 @@ export class DefaultChangelogNotes implements ChangelogNotes {
     }
 
     const summary = buildNotesSummary(commits, options);
-    return summary ? `${summary}\n\n${body}` : body;
+    // Insert AFTER the version heading so PullRequestBody.extractSingleRelease
+    // can still match /^## [version]/ at the start of the notes content.
+    return summary ? insertNotesAfterVersionHeader(body, summary) : body;
   }
+}
+
+/**
+ * Place the Notes block immediately under the CalVer/SemVer H2 header.
+ */
+function insertNotesAfterVersionHeader(
+  changelogBody: string,
+  notesSummary: string
+): string {
+  const lines = changelogBody.split('\n');
+  const headerIndex = lines.findIndex(line => /^#{1,3}\s+\[?/.test(line));
+  if (headerIndex === -1) {
+    return `${notesSummary}\n\n${changelogBody}`;
+  }
+  let insertAt = headerIndex + 1;
+  while (insertAt < lines.length && lines[insertAt].trim() === '') {
+    insertAt++;
+  }
+  const before = lines.slice(0, insertAt).join('\n').replace(/\s+$/, '');
+  const after = lines.slice(insertAt).join('\n').replace(/^\s+/, '');
+  return `${before}\n\n${notesSummary}${after ? `\n\n${after}` : ''}`;
 }
 
 /**
