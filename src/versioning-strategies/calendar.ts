@@ -53,6 +53,13 @@ export interface CalendarVersioningStrategyOptions {
  * - MAJOR: Major version number (breaking changes)
  * - MINOR: Minor version number (features)
  * - MICRO: Micro/patch version number (fixes)
+ * - RELEASE: Release counter for a calendar day (Rocketlane)
+ * - HOTFIX: Hotfix counter on a specific RELEASE (Rocketlane)
+ *
+ * Rocketlane scheme example: YYYY.0M.0D.RELEASE.HOTFIX
+ * - Normal release (feat/fix/…): bump RELEASE, reset HOTFIX → …1.0, …2.0
+ * - Hotfix (`hotfix:` commits only): bump HOTFIX → …1.1, …1.2
+ * - New calendar day: first normal release starts at …1.0
  */
 export class CalendarVersioningStrategy implements VersioningStrategy {
   readonly calverScheme: string;
@@ -74,6 +81,8 @@ export class CalendarVersioningStrategy implements VersioningStrategy {
   ): VersionUpdater {
     let breaking = 0;
     let features = 0;
+    let hotfixes = 0;
+    let normalReleases = 0;
 
     for (const commit of commits) {
       const releaseAs = commit.notes.find(note => note.title === 'RELEASE AS');
@@ -85,17 +94,35 @@ export class CalendarVersioningStrategy implements VersioningStrategy {
           Version.parse(releaseAs.text).toString()
         );
       }
+      if (commit.type === 'hotfix') {
+        hotfixes++;
+        continue;
+      }
       if (commit.breaking) {
         breaking++;
+        normalReleases++;
       } else if (commit.type === 'feat' || commit.type === 'feature') {
         features++;
+        normalReleases++;
+      } else if (
+        commit.type === 'fix' ||
+        commit.type === 'perf' ||
+        commit.type === 'revert'
+      ) {
+        // Non-hotfix releasable commits bump RELEASE (not HOTFIX).
+        normalReleases++;
       }
     }
 
     const tokens = parseFormat(this.calverScheme);
     const hasBreaking = breaking > 0;
     const hasFeatures = features > 0;
-    const bumpType = determineBumpType(tokens, hasBreaking, hasFeatures);
+    const bumpType = determineBumpType(
+      tokens,
+      hasBreaking,
+      hasFeatures,
+      hotfixes > 0 && normalReleases === 0
+    );
 
     return new CalendarVersionUpdate(
       this.calverScheme,
@@ -133,22 +160,34 @@ export class CalendarVersion extends Version {
 
 const DEFAULT_SCHEME = 'YYYY.0M.0D';
 
-type BumpType = 'major' | 'minor' | 'micro';
+type BumpType = 'major' | 'minor' | 'micro' | 'release' | 'hotfix';
 
 function determineBumpType(
   tokens: CalVerToken[],
   hasBreaking: boolean,
-  hasFeatures: boolean
+  hasFeatures: boolean,
+  hotfixOnly = false
 ): BumpType {
   const availableTokens = new Set(tokens);
+  const hasRelease = availableTokens.has('RELEASE');
+  const hasHotfix = availableTokens.has('HOTFIX');
+
+  // Rocketlane RELEASE.HOTFIX scheme
+  if (hasRelease && hasHotfix) {
+    if (hotfixOnly) return 'hotfix';
+    return 'release';
+  }
 
   if (hasBreaking) {
     if (availableTokens.has('MAJOR')) return 'major';
     if (availableTokens.has('MINOR')) return 'minor';
+    if (hasRelease) return 'release';
   } else if (hasFeatures) {
     if (availableTokens.has('MINOR')) return 'minor';
+    if (hasRelease) return 'release';
   }
 
+  if (hasHotfix) return 'hotfix';
   return 'micro';
 }
 
@@ -170,7 +209,9 @@ type CalVerToken =
   | '0D'
   | 'MAJOR'
   | 'MINOR'
-  | 'MICRO';
+  | 'MICRO'
+  | 'RELEASE'
+  | 'HOTFIX';
 
 interface CalVerSegment {
   type: CalVerToken;
@@ -296,7 +337,7 @@ class CalendarVersionUpdate implements VersionUpdater {
   ): CalVerSegment {
     const oldValue = oldSegment?.value ?? 0;
     const newValue = state.dateChanged
-      ? 0
+      ? this.computeValueNewDate(tokenType, state)
       : this.computeValueSameDate(tokenType, oldValue, state);
 
     return {
@@ -304,6 +345,25 @@ class CalendarVersionUpdate implements VersionUpdater {
       value: newValue,
       originalString: newValue.toString(),
     };
+  }
+
+  /**
+   * On a new calendar day, Rocketlane RELEASE.HOTFIX starts at 1.0 (or 1.1
+   * for a hotfix-only bump). Legacy MAJOR/MINOR/MICRO keep upstream behavior
+   * (reset to 0 on date change).
+   */
+  private computeValueNewDate(
+    tokenType: CalVerToken,
+    state: SegmentProcessingState
+  ): number {
+    if (tokenType === 'RELEASE') {
+      state.shouldResetLower = true;
+      return 1;
+    }
+    if (tokenType === 'HOTFIX') {
+      return this.bumpType === 'hotfix' ? 1 : 0;
+    }
+    return 0;
   }
 
   private computeValueSameDate(
@@ -325,6 +385,12 @@ class CalendarVersionUpdate implements VersionUpdater {
   }
 
   private isTargetSegmentForBump(tokenType: CalVerToken): boolean {
+    if (this.bumpType === 'release') {
+      return tokenType === 'RELEASE' || tokenType === 'MINOR';
+    }
+    if (this.bumpType === 'hotfix') {
+      return tokenType === 'HOTFIX' || tokenType === 'MICRO';
+    }
     return tokenType.toLowerCase() === this.bumpType;
   }
 }
@@ -480,6 +546,8 @@ const CALVER_PLACEHOLDERS: Record<string, string> = {
   MAJOR: '\\d+',
   MINOR: '\\d+',
   MICRO: '\\d+',
+  RELEASE: '\\d+',
+  HOTFIX: '\\d+',
 };
 
 const PLACEHOLDER_PATTERN = new RegExp(

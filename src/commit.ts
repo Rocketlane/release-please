@@ -396,7 +396,7 @@ function splitMessages(message: string): string[] {
 
   const conventionalCommits = messages[0]
     .split(
-      /\r?\n\r?\n(?=(?:feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\(.*?\))?: )/
+      /\r?\n\r?\n(?=(?:feat|fix|hotfix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\(.*?\))?: )/
     )
     .filter(Boolean);
   return [...conventionalCommits, ...messages.slice(1)];

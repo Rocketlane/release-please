@@ -64,6 +64,20 @@ describe('CalendarVersioningStrategy', () => {
     },
   ];
 
+  const hotfixCommits = [
+    {
+      sha: 'sha1',
+      message: 'hotfix: patch production issue',
+      files: ['path1/file1.txt'],
+      type: 'hotfix',
+      scope: null,
+      bareMessage: 'patch production issue',
+      notes: [],
+      references: [],
+      breaking: false,
+    },
+  ];
+
   describe('date segments', () => {
     describe('YYYY - Full year', () => {
       it('formats full year correctly', async () => {
@@ -944,6 +958,58 @@ describe('CalendarVersioningStrategy', () => {
         );
         const newVersion = await strategy.bump(oldVersion, breakingCommits);
         expect(newVersion.toString()).to.equal('2024.06.15');
+      });
+    });
+
+    describe('YYYY.0M.0D.RELEASE.HOTFIX (Rocketlane)', () => {
+      const scheme = 'YYYY.0M.0D.RELEASE.HOTFIX';
+
+      it('normal feat release bumps RELEASE and resets HOTFIX to 0', async () => {
+        const strategy = new CalendarVersioningStrategy({calverScheme: scheme});
+        strategy.setCurrentDate(new Date(Date.UTC(2026, 8, 8)));
+        const oldVersion = Version.parse('2026.09.08.1.0');
+        const newVersion = await strategy.bump(oldVersion, featureCommits);
+        expect(newVersion.toString()).to.equal('2026.09.08.2.0');
+      });
+
+      it('fix commits also bump RELEASE (not HOTFIX)', async () => {
+        const strategy = new CalendarVersioningStrategy({calverScheme: scheme});
+        strategy.setCurrentDate(new Date(Date.UTC(2026, 8, 8)));
+        const oldVersion = Version.parse('2026.09.08.1.0');
+        const newVersion = await strategy.bump(oldVersion, fixCommits);
+        expect(newVersion.toString()).to.equal('2026.09.08.2.0');
+      });
+
+      it('hotfix: bumps HOTFIX only', async () => {
+        const strategy = new CalendarVersioningStrategy({calverScheme: scheme});
+        strategy.setCurrentDate(new Date(Date.UTC(2026, 8, 8)));
+        const oldVersion = Version.parse('2026.09.08.1.0');
+        const newVersion = await strategy.bump(oldVersion, hotfixCommits);
+        expect(newVersion.toString()).to.equal('2026.09.08.1.1');
+      });
+
+      it('second hotfix bumps HOTFIX again', async () => {
+        const strategy = new CalendarVersioningStrategy({calverScheme: scheme});
+        strategy.setCurrentDate(new Date(Date.UTC(2026, 8, 8)));
+        const oldVersion = Version.parse('2026.09.08.1.1');
+        const newVersion = await strategy.bump(oldVersion, hotfixCommits);
+        expect(newVersion.toString()).to.equal('2026.09.08.1.2');
+      });
+
+      it('new calendar day normal release starts at 1.0', async () => {
+        const strategy = new CalendarVersioningStrategy({calverScheme: scheme});
+        strategy.setCurrentDate(new Date(Date.UTC(2026, 8, 9)));
+        const oldVersion = Version.parse('2026.09.08.1.0');
+        const newVersion = await strategy.bump(oldVersion, featureCommits);
+        expect(newVersion.toString()).to.equal('2026.09.09.1.0');
+      });
+
+      it('feat after revert-style next release is 2.0 not 1.1', async () => {
+        const strategy = new CalendarVersioningStrategy({calverScheme: scheme});
+        strategy.setCurrentDate(new Date(Date.UTC(2026, 8, 8)));
+        const oldVersion = Version.parse('2026.09.08.1.0');
+        const newVersion = await strategy.bump(oldVersion, featureCommits);
+        expect(newVersion.toString()).to.equal('2026.09.08.2.0');
       });
     });
   });

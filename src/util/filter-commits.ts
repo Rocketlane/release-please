@@ -20,6 +20,7 @@ const BREAKING_CHANGE_NOTE = 'BREAKING CHANGE';
 const DEFAULT_CHANGELOG_SECTIONS = [
   {type: 'feat', section: 'Features'},
   {type: 'fix', section: 'Bug Fixes'},
+  {type: 'hotfix', section: 'Hotfixes'},
   {type: 'perf', section: 'Performance Improvements'},
   {type: 'revert', section: 'Reverts'},
   {type: 'chore', section: 'Miscellaneous Chores', hidden: true},
