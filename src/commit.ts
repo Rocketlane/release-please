@@ -423,6 +423,11 @@ export function parseConventionalCommits(
     )) {
       try {
         for (const parsedCommit of parseCommits(commitMessage)) {
+          // Git trailers like Co-authored-by: are parsed as nested "commits"
+          // by the conventional-commits AST walker — skip them.
+          if (isGitTrailerType(parsedCommit.type)) {
+            continue;
+          }
           const breaking =
             parsedCommit.notes.filter(note => note.title === 'BREAKING CHANGE')
               .length > 0;
@@ -431,6 +436,7 @@ export function parseConventionalCommits(
             message: parsedCommit.header,
             files: commit.files,
             pullRequest: commit.pullRequest,
+            author: commit.author,
             type: parsedCommit.type,
             scope: parsedCommit.scope,
             bareMessage: parsedCommit.subject,
@@ -466,4 +472,23 @@ function preprocessCommitMessage(commit: Commit): string {
     }
   }
   return commit.message;
+}
+
+const GIT_TRAILER_TYPES = new Set([
+  'co-authored-by',
+  'signed-off-by',
+  'reviewed-by',
+  'acked-by',
+  'reported-by',
+  'tested-by',
+  'helped-by',
+  'suggested-by',
+  'made-with',
+]);
+
+function isGitTrailerType(type?: string): boolean {
+  if (!type) {
+    return false;
+  }
+  return GIT_TRAILER_TYPES.has(type.toLowerCase());
 }

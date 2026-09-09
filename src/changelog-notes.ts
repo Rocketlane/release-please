@@ -25,6 +25,8 @@ export interface BuildNotesOptions {
   changelogSections?: ChangelogSection[];
   commits?: Commit[];
   includeCommitAuthors?: boolean;
+  /** Prepend a Notes section with plain-language what/who lines. */
+  includeNotesSummary?: boolean;
 }
 
 export interface ChangelogNotes {

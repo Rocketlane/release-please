@@ -374,6 +374,43 @@ describe('DefaultChangelogNotes', () => {
         expect(notes).to.not.include('Test User');
         safeSnapshot(notes);
       });
+      it('should prepend Notes summary with what and who', async () => {
+        const commits = [
+          {
+            sha: 'sha1',
+            message: 'fix: payment timeout (#99)',
+            files: ['path1/file1.txt'],
+            type: 'fix',
+            scope: null,
+            bareMessage: 'payment timeout (#99)',
+            notes: [],
+            references: [{prefix: '#', action: '', issue: '99'}],
+            breaking: false,
+            author: {
+              name: 'Manikandan S',
+              username: 'manikandanrockertane',
+            },
+            pullRequest: {
+              headBranchName: 'hotfix_payment',
+              baseBranchName: 'main',
+              number: 99,
+              title: 'fix: payment timeout',
+              body: '',
+              labels: [],
+              files: [],
+            },
+          },
+        ];
+        const changelogNotes = new DefaultChangelogNotes();
+        const notes = await changelogNotes.buildNotes(commits, {
+          ...notesOptions,
+          includeNotesSummary: true,
+        });
+        expect(notes).to.match(/^### Notes/);
+        expect(notes).to.include('**payment timeout**');
+        expect(notes).to.include('@manikandanrockertane');
+        expect(notes).to.include('#99');
+      });
       // it('ignores reverted commits', async () => {
       //   const commits = [buildCommitFromFixture('multiple-messages')];
       //   const changelogNotes = new DefaultChangelogNotes();

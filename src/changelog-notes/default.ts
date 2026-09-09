@@ -114,10 +114,74 @@ export class DefaultChangelogNotes implements ChangelogNotes {
       };
     });
 
-    return conventionalChangelogWriter
+    const body = conventionalChangelogWriter
       .parseArray(changelogCommits, context, preset.writerOpts)
       .trim();
+
+    if (!options.includeNotesSummary) {
+      return body;
+    }
+
+    const summary = buildNotesSummary(commits, options);
+    return summary ? `${summary}\n\n${body}` : body;
   }
+}
+
+/**
+ * Plain-language "what changed / who changed it" block for GitHub Releases.
+ */
+function buildNotesSummary(
+  commits: ConventionalCommit[],
+  options: BuildNotesOptions
+): string {
+  const host = options.host || DEFAULT_HOST;
+  const lines: string[] = [];
+  const seen = new Set<string>();
+
+  for (const commit of commits) {
+    const what = cleanSummarySubject(commit.bareMessage);
+    if (!what) {
+      continue;
+    }
+    const key = `${commit.sha}:${what.toLowerCase()}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+
+    const who = formatAuthor(commit);
+    const prNumber =
+      commit.pullRequest?.number ||
+      commit.references.find(ref => /^\d+$/.test(ref.issue || ''))?.issue;
+    const prLink = prNumber
+      ? ` ([#${prNumber}](${host}/${options.owner}/${options.repository}/pull/${prNumber}))`
+      : '';
+
+    lines.push(`* **${htmlEscape(what)}** — ${who}${prLink}`);
+  }
+
+  if (lines.length === 0) {
+    return '';
+  }
+
+  return ['### Notes', '', ...lines].join('\n');
+}
+
+function cleanSummarySubject(subject: string): string {
+  return subject
+    .replace(/\s*\(#\d+\)\s*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatAuthor(commit: ConventionalCommit): string {
+  if (commit.author?.username) {
+    return `@${commit.author.username}`;
+  }
+  if (commit.author?.name) {
+    return commit.author.name;
+  }
+  return '_unknown_';
 }
 
 function replaceIssueLink(
