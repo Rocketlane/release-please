@@ -47,6 +47,7 @@ import {
 } from './util/pull-request-overflow-handler';
 import {signoffCommitMessage} from './util/signoff-commit-message';
 import {CommitExclude} from './util/commit-exclude';
+import {hotfixBaseVersion} from './util/calver-hotfix';
 
 type ExtraGenericFile = {
   type: 'generic';
@@ -1336,6 +1337,9 @@ export class Manifest {
       forceTag: release.forceTag,
     });
 
+    // Hotfix …RELEASE.HOTFIX (HOTFIX>=1): mark base …RELEASE.0 as unstable.
+    await this.markHotfixBaseAsUnstable(release);
+
     return {
       ...githubRelease,
       path: release.path,
@@ -1345,6 +1349,31 @@ export class Manifest {
       patch: release.tag.version.patch,
       prNumber: pullRequest.number,
     };
+  }
+
+  private async markHotfixBaseAsUnstable(
+    release: CandidateRelease
+  ): Promise<void> {
+    const baseVersion = hotfixBaseVersion(release.tag.version.toString());
+    if (!baseVersion) {
+      return;
+    }
+    const baseTag = new TagName(
+      Version.parse(baseVersion),
+      release.tag.component,
+      release.tag.separator,
+      release.tag.includeV
+    );
+    this.logger.info(
+      `Hotfix ${release.tag.toString()} supersedes ${baseTag.toString()}; marking base as unstable`
+    );
+    try {
+      await this.github.markReleaseAsUnstable(baseTag.toString());
+    } catch (err) {
+      this.logger.warn(
+        `Failed to mark ${baseTag.toString()} as unstable: ${(err as Error).message}`
+      );
+    }
   }
 
   private async getStrategiesByPath(): Promise<Record<string, Strategy>> {

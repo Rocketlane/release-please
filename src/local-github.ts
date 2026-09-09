@@ -848,6 +848,10 @@ export class LocalGitHub implements Scm {
     return await this.gitHubApi.createRelease(release, options);
   }
 
+  async markReleaseAsUnstable(tagName: string): Promise<void> {
+    return await this.gitHubApi.markReleaseAsUnstable(tagName);
+  }
+
   /**
    * Makes a comment on a issue/pull request.
    *

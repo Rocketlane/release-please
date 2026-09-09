@@ -146,6 +146,11 @@ export interface Scm {
     release: Release,
     options?: ScmReleaseOptions
   ): Promise<ScmRelease>;
+  /**
+   * Mark an existing GitHub Release (by tag) as prerelease/unstable.
+   * Used when a hotfix supersedes a normal …RELEASE.0 release.
+   */
+  markReleaseAsUnstable(tagName: string): Promise<void>;
   commentOnIssue(comment: string, number: number): Promise<string>;
   removeIssueLabels(labels: string[], number: number): Promise<void>;
   addIssueLabels(labels: string[], number: number): Promise<void>;

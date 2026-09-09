@@ -32,6 +32,7 @@ import {
   ConfigurationError,
 } from './errors';
 import {logger as defaultLogger} from './util/logger';
+import {unstableReleaseName} from './util/calver-hotfix';
 
 import {graphql} from '@octokit/graphql';
 import {HttpsProxyAgent} from 'https-proxy-agent';
@@ -733,6 +734,41 @@ export class GitHubApi {
           throw new DuplicateReleaseError(e, 'tagName');
         }
       }
+    }
+  );
+
+  /**
+   * Mark an existing release as prerelease and annotate the name as unstable.
+   */
+  markReleaseAsUnstable = wrapAsync(
+    async (tagName: string): Promise<void> => {
+      let release;
+      try {
+        release = await this.octokit.repos.getReleaseByTag({
+          owner: this.repository.owner,
+          repo: this.repository.repo,
+          tag: tagName,
+        });
+      } catch (err) {
+        if ((err as RequestError).status === 404) {
+          this.logger.warn(
+            `No GitHub Release found for tag ${tagName}; skip marking unstable`
+          );
+          return;
+        }
+        throw err;
+      }
+
+      await this.octokit.repos.updateRelease({
+        owner: this.repository.owner,
+        repo: this.repository.repo,
+        release_id: release.data.id,
+        prerelease: true,
+        name: unstableReleaseName(release.data.name || tagName),
+      });
+      this.logger.info(
+        `Marked release for tag ${tagName} as prerelease (unstable)`
+      );
     }
   );
 
