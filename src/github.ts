@@ -398,7 +398,7 @@ export class GitHub implements Scm {
           );
           const meta = await this.getCommitMeta(graphCommit.sha);
           commit.files = meta.files;
-          if (!commit.author && meta.author) {
+          if (meta.author) {
             commit.author = meta.author;
           }
         } else {
@@ -415,12 +415,12 @@ export class GitHub implements Scm {
         // we can perhaps lazy load these.
         const meta = await this.getCommitMeta(graphCommit.sha);
         commit.files = meta.files;
-        if (!commit.author && meta.author) {
+        if (meta.author) {
           commit.author = meta.author;
         }
       }
       // REST fallback if GraphQL omitted author (seen with some App tokens).
-      if (!commit.author) {
+      if (!commit.author?.name && !commit.author?.username) {
         const meta = await this.getCommitMeta(graphCommit.sha);
         if (meta.author) {
           commit.author = meta.author;
@@ -457,41 +457,49 @@ export class GitHub implements Scm {
       author?: {name: string; email?: string; username?: string};
     }> => {
       this.logger.debug(`Backfilling commit meta for: ${sha}`);
-      const files: string[] = [];
-      let author:
-        | {name: string; email?: string; username?: string}
-        | undefined;
-      for await (const resp of this.octokit.paginate.iterator(
-        'GET /repos/{owner}/{repo}/commits/{ref}',
-        {
-          owner: this.repository.owner,
-          repo: this.repository.repo,
-          ref: sha,
-        }
-      )) {
-        const data = resp.data as any as {
-          files: {filename: string}[];
-          author?: {login?: string} | null;
-          commit?: {
-            author?: {name?: string; email?: string} | null;
-          };
-        };
-        if (!author && (data.commit?.author || data.author)) {
-          const name = data.commit?.author?.name || data.author?.login || 'Unknown';
-          const email = data.commit?.author?.email;
-          author = {
+      const {data} = await this.octokit.repos.getCommit({
+        owner: this.repository.owner,
+        repo: this.repository.repo,
+        ref: sha,
+      });
+
+      const email = data.commit?.author?.email || undefined;
+      const name = data.commit?.author?.name || data.author?.login || undefined;
+      const username =
+        data.author?.login || usernameFromNoreplyEmail(email) || undefined;
+      const author = name
+        ? {
             name,
             email,
-            username:
-              data.author?.login || usernameFromNoreplyEmail(email),
-          };
-        }
-        for (const f of data.files || []) {
-          if (f.filename) {
-            files.push(f.filename);
+            username,
+          }
+        : username
+          ? {name: username, email, username}
+          : undefined;
+
+      const files = (data.files || [])
+        .map(f => f.filename)
+        .filter((f): f is string => !!f);
+
+      // Commit files are capped by the API; paginate if truncated.
+      if (data.files && data.files.length >= 300) {
+        for await (const resp of this.octokit.paginate.iterator(
+          'GET /repos/{owner}/{repo}/commits/{ref}',
+          {
+            owner: this.repository.owner,
+            repo: this.repository.repo,
+            ref: sha,
+          }
+        )) {
+          const page = resp.data as any as {files?: {filename?: string}[]};
+          for (const f of page.files || []) {
+            if (f.filename && !files.includes(f.filename)) {
+              files.push(f.filename);
+            }
           }
         }
       }
+
       if (files.length >= 3000) {
         this.logger.warn(
           `Found ${files.length} files. This may not include all the files.`
