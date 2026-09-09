@@ -477,6 +477,10 @@ export class GitHub implements Scm {
           ? {name: username, email, username}
           : undefined;
 
+      this.logger.info(
+        `Commit meta ${sha.slice(0, 7)}: author=${JSON.stringify(author)} login=${data.author?.login || 'none'}`
+      );
+
       const files = (data.files || [])
         .map(f => f.filename)
         .filter((f): f is string => !!f);
