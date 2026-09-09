@@ -418,9 +418,6 @@ export class GitHub implements Scm {
         if (meta.author) {
           commit.author = meta.author;
         }
-        this.logger.info(
-          `Assigned author on ${graphCommit.sha.slice(0, 7)}: ${JSON.stringify(commit.author)}`
-        );
       }
       // REST fallback if GraphQL omitted author (seen with some App tokens).
       if (!commit.author?.name && !commit.author?.username) {
@@ -479,10 +476,6 @@ export class GitHub implements Scm {
         : username
           ? {name: username, email, username}
           : undefined;
-
-      this.logger.info(
-        `Commit meta ${sha.slice(0, 7)}: author=${JSON.stringify(author)} login=${data.author?.login || 'none'}`
-      );
 
       const files = (data.files || [])
         .map(f => f.filename)

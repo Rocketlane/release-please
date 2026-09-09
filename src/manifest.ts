@@ -696,6 +696,7 @@ export class Manifest {
         message: commit.message,
         files: commit.files,
         pullRequest: commit.pullRequest,
+        author: commit.author,
       });
     }
 
@@ -772,11 +773,6 @@ export class Manifest {
         commitsPerPath[path],
         this.logger
       );
-      for (const c of pathCommits.slice(0, 3)) {
-        this.logger.info(
-          `Parsed ${c.sha?.slice(0, 7)} type=${c.type} author=${JSON.stringify(c.author)}`
-        );
-      }
       if (config.hotfixBranchPattern) {
         pathCommits = applyHotfixBranchHints(
           pathCommits,
