@@ -1,0 +1,19 @@
+.github/workflows/ci.yaml
+  s_b1b3c53ca70652::t_62c16d2a0ee4d2 17,34,55,68,79,95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "567c02440f114070abf38ab92650eb04f8379364",
+  "prompts": {},
+  "sessions": {
+    "s_b1b3c53ca70652": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b591b87e-6b0e-49a8-87b5-74c484f6b038",
+        "model": "claude-haiku-5-5"
+      },
+      "human_author": "Balaji Soundararajan <balaji@rocketlane.com>"
+    }
+  }
+}
