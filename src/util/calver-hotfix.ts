@@ -75,21 +75,29 @@ export function isHotfixBranch(
 }
 
 /**
- * Remap conventional commit type to `hotfix` when the associated PR was
- * opened from a hotfix_* / hotfix/* branch. Commit messages like `fix:`
- * still land under Hotfixes and bump HOTFIX (…1.1) instead of RELEASE.
+ * Remap conventional commit type to `hotfix` when either:
+ * - the associated merged PR's head was a hotfix_* / hotfix/* branch, or
+ * - release-please `targetBranch` is a hotfix branch (direct pushes / open PR
+ *   into master still on hotfix_* — e.g. Path A cut-calver on hotfix_*).
  *
- * Direct pushes without an associated PR are unchanged (still need `hotfix:`).
+ * Commit messages like `fix:` then land under Hotfixes and bump HOTFIX
+ * (…1.1) instead of RELEASE (…2.0 → …3.0).
  */
 export function applyHotfixBranchHints(
   commits: ConventionalCommit[],
-  pattern: string = DEFAULT_HOTFIX_BRANCH_PATTERN
+  pattern: string = DEFAULT_HOTFIX_BRANCH_PATTERN,
+  targetBranch?: string
 ): ConventionalCommit[] {
+  const onHotfixTarget = isHotfixBranch(targetBranch, pattern);
   return commits.map(commit => {
     if (commit.type === 'hotfix') {
       return commit;
     }
-    if (!isHotfixBranch(commit.pullRequest?.headBranchName, pattern)) {
+    const fromHotfixPr = isHotfixBranch(
+      commit.pullRequest?.headBranchName,
+      pattern
+    );
+    if (!fromHotfixPr && !onHotfixTarget) {
       return commit;
     }
     return {...commit, type: 'hotfix'};

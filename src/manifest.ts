@@ -776,7 +776,8 @@ export class Manifest {
       if (config.hotfixBranchPattern) {
         pathCommits = applyHotfixBranchHints(
           pathCommits,
-          config.hotfixBranchPattern
+          config.hotfixBranchPattern,
+          this.targetBranch
         );
       }
       // The processCommits hook can be implemented by plugins to
