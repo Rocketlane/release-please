@@ -47,10 +47,7 @@ import {
 } from './util/pull-request-overflow-handler';
 import {signoffCommitMessage} from './util/signoff-commit-message';
 import {CommitExclude} from './util/commit-exclude';
-import {
-  applyHotfixBranchHints,
-  hotfixBaseVersion,
-} from './util/calver-hotfix';
+import {applyHotfixBranchHints, hotfixBaseVersion} from './util/calver-hotfix';
 
 type ExtraGenericFile = {
   type: 'generic';
@@ -1394,7 +1391,9 @@ export class Manifest {
       await this.github.markReleaseAsUnstable(baseTag.toString());
     } catch (err) {
       this.logger.warn(
-        `Failed to mark ${baseTag.toString()} as unstable: ${(err as Error).message}`
+        `Failed to mark ${baseTag.toString()} as unstable: ${
+          (err as Error).message
+        }`
       );
     }
   }

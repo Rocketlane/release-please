@@ -474,8 +474,8 @@ export class GitHub implements Scm {
             username,
           }
         : username
-          ? {name: username, email, username}
-          : undefined;
+        ? {name: username, email, username}
+        : undefined;
 
       const files = (data.files || [])
         .map(f => f.filename)

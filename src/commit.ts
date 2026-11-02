@@ -34,9 +34,7 @@ export interface CommitAuthor {
 /**
  * Extract a GitHub login from a users.noreply.github.com email.
  */
-export function usernameFromNoreplyEmail(
-  email?: string
-): string | undefined {
+export function usernameFromNoreplyEmail(email?: string): string | undefined {
   if (!email) {
     return undefined;
   }

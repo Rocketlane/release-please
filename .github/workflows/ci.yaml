@@ -93,5 +93,11 @@ jobs:
       - uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3
         with:
           node-version: 22
-      - run: npm install --save googleapis/release-please#${GITHUB_REF}
+      # PR workflows set GITHUB_REF to refs/pull/N/merge, which npm cannot fetch
+      # from googleapis/release-please. Pin this fork by commit on the PR head.
+      - name: Install release-please from this repository
+        env:
+          REPO: ${{ github.repository }}
+          REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm install --save "github:${REPO}#${REF}"
       - run: npm run build

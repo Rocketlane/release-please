@@ -30,9 +30,7 @@ export const DEFAULT_HOTFIX_BRANCH_PATTERN = '^hotfix[_/-]';
  * - 2026.09.09.1.0 → undefined (normal release)
  * - 1.2.3 → undefined (not this scheme)
  */
-export function hotfixBaseVersion(
-  version: string
-): string | undefined {
+export function hotfixBaseVersion(version: string): string | undefined {
   const match = version
     .split('+')[0]
     .split('-')[0]
