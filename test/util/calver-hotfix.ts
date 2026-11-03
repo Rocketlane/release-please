@@ -119,5 +119,44 @@ describe('calver-hotfix helpers', () => {
       ];
       expect(applyHotfixBranchHints(commits)[0].type).to.equal('fix');
     });
+
+    it('remaps fix: direct push when targetBranch is hotfix_*', () => {
+      const commits: ConventionalCommit[] = [
+        {
+          sha: 'abc',
+          message: 'fix(ci): workflow tweak',
+          type: 'fix',
+          scope: 'ci',
+          bareMessage: 'workflow tweak',
+          notes: [],
+          references: [],
+          breaking: false,
+        },
+      ];
+      const remapped = applyHotfixBranchHints(
+        commits,
+        undefined,
+        'hotfix_prod_line_fix'
+      );
+      expect(remapped[0].type).to.equal('hotfix');
+    });
+
+    it('leaves fix: on master targetBranch without PR hint', () => {
+      const commits: ConventionalCommit[] = [
+        {
+          sha: 'abc',
+          message: 'fix: bug',
+          type: 'fix',
+          scope: null,
+          bareMessage: 'bug',
+          notes: [],
+          references: [],
+          breaking: false,
+        },
+      ];
+      expect(
+        applyHotfixBranchHints(commits, undefined, 'master')[0].type
+      ).to.equal('fix');
+    });
   });
 });
