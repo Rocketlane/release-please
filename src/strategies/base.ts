@@ -333,12 +333,20 @@ export abstract class BaseStrategy implements Strategy {
       commits
     );
     if (!bumpOnlyOptions && this.changelogEmpty(releaseNotesBody)) {
+      const previousVersion = latestRelease?.tag.version.toString();
+      const versionChanged =
+        !previousVersion || newVersion.toString() !== previousVersion;
+      if (!versionChanged) {
+        this.logger.info(
+          `No user facing commits found since ${
+            latestRelease ? latestRelease.sha : 'beginning of time'
+          } - skipping`
+        );
+        return undefined;
+      }
       this.logger.info(
-        `No user facing commits found since ${
-          latestRelease ? latestRelease.sha : 'beginning of time'
-        } - skipping`
+        `Changelog has no visible sections but version ${previousVersion ?? 'none'} → ${newVersion} — opening release PR`
       );
-      return undefined;
     }
     const updates = await this.buildUpdates({
       changelogEntry: releaseNotesBody,

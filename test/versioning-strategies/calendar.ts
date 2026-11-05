@@ -78,6 +78,20 @@ describe('CalendarVersioningStrategy', () => {
     },
   ];
 
+  const choreCiCommits = [
+    {
+      sha: 'sha1',
+      message: 'chore(ci): adjust clickhouse schema exceptions',
+      files: ['.github/config/clickhouse-schema-exceptions.json'],
+      type: 'chore',
+      scope: 'ci',
+      bareMessage: 'adjust clickhouse schema exceptions',
+      notes: [],
+      references: [],
+      breaking: false,
+    },
+  ];
+
   describe('date segments', () => {
     describe('YYYY - Full year', () => {
       it('formats full year correctly', async () => {
@@ -978,6 +992,14 @@ describe('CalendarVersioningStrategy', () => {
         const oldVersion = Version.parse('2026.09.08.1.0');
         const newVersion = await strategy.bump(oldVersion, fixCommits);
         expect(newVersion.toString()).to.equal('2026.09.08.2.0');
+      });
+
+      it('chore/ci commits bump RELEASE (batch every merge)', async () => {
+        const strategy = new CalendarVersioningStrategy({calverScheme: scheme});
+        strategy.setCurrentDate(new Date(Date.UTC(2026, 10, 5)));
+        const oldVersion = Version.parse('2026.11.05.3.0');
+        const newVersion = await strategy.bump(oldVersion, choreCiCommits);
+        expect(newVersion.toString()).to.equal('2026.11.05.4.0');
       });
 
       it('hotfix: bumps HOTFIX only', async () => {

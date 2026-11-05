@@ -58,6 +58,7 @@ export interface CalendarVersioningStrategyOptions {
  *
  * Rocketlane scheme example: YYYY.0M.0D.RELEASE.HOTFIX
  * - Normal release (feat/fix/…): bump RELEASE, reset HOTFIX → …1.0, …2.0
+ * - chore/ci/docs/… on master also bump RELEASE (batch deploys every merged PR)
  * - Hotfix (`hotfix:` commits, or commits remapped from hotfix_* PR branches):
  *   bump HOTFIX → …1.1, …1.2
  * - New calendar day: first normal release starts at …1.0
@@ -111,6 +112,9 @@ export class CalendarVersioningStrategy implements VersioningStrategy {
         commit.type === 'revert'
       ) {
         // Non-hotfix releasable commits bump RELEASE (not HOTFIX).
+        normalReleases++;
+      } else if (commit.type) {
+        // chore, ci, docs, build, etc. — still cut a CalVer tag (RELEASE bump).
         normalReleases++;
       }
     }
